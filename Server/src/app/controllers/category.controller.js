@@ -1,0 +1,214 @@
+/**
+ * ============================================================================
+ * Category Controller
+ * ============================================================================
+ *
+ * @description Controller for managing product categories with image uploads
+ * @module controllers/category
+ * @requires utils/apiUtils - Async handler, API response and error utilities
+ * @requires models/category.model - Category data model
+ *
+ * Available Operations:
+ * - categoryCreate: Create a new category with image
+ * - categoryView: Retrieve all active categories
+ * - categoryUpdate: Update an existing category
+ * - categoryDelete: Soft delete a category
+ * - multiDelete: Bulk delete categories
+ * - changeStatus: Toggle category status (active/inactive)
+ *
+ * @author Monsta Team
+ * @version 1.0.0
+ * @since 2025-12-23
+ * ============================================================================
+ */
+
+const { asyncHandler, ApiResponse, ApiError } = require("../utils/apiUtils");
+const { categoryModel } = require("../models/category.model");
+
+// ==================== CREATE CATEGORY ====================
+const categoryCreate = asyncHandler(async (req, res) => {
+  let { categoryName, categoryOrder, categoryStatus } = req.body;
+
+  if (!categoryName || categoryName === "") {
+    throw new ApiError(400, "Category name is required");
+  }
+
+  // Duplicate check
+  const existingCategory = await categoryModel.findOne({ categoryName, isDeleted: false });
+  if (existingCategory) {
+    throw new ApiError(409, `Category with name '${categoryName}' already exists`);
+  }
+
+  const order = categoryOrder ? Number(categoryOrder) : 0;
+  const status = categoryStatus !== undefined
+    ? String(categoryStatus) === "true" || categoryStatus === true
+    : true;
+
+  if (!req.file) {
+    throw new ApiError(400, "Category image is required");
+  }
+
+  const categoryImage = `/${req.uploadFolder}/${req.file.filename}`;
+
+  const category = await categoryModel.create({
+    categoryName,
+    categoryImage,
+    categoryOrder: order,
+    categoryStatus: status,
+  });
+
+  return res
+    .status(201)
+    .json(new ApiResponse(201, category, "Category created successfully"));
+
+});
+
+// ==================== VIEW CATEGORIES ====================
+
+const categoryView = asyncHandler(async (req, res) => {
+  const categories = await categoryModel
+    .find({ isDeleted: false })
+    .sort({ categoryOrder: 1, createdAt: -1 })
+    .lean();
+
+  // Legacy mapping
+  categories.forEach(cat => {
+    if (!cat.categoryImage && cat.categoryImageUrl) cat.categoryImage = cat.categoryImageUrl;
+  });
+  return res
+    .status(200)
+    .json(
+      new ApiResponse(200, categories, "Categories retrieved successfully")
+    );
+});
+
+// ==================== UPDATE CATEGORY ====================
+
+const categoryUpdate = asyncHandler(async (req, res) => {
+  const { id } = req.params;
+  let { categoryName, categoryOrder, categoryStatus } = req.body;
+
+  if (categoryName) {
+    const existingCategory = await categoryModel.findOne({
+      categoryName: categoryName,
+      _id: { $ne: id },
+      isDeleted: false,
+    });
+    if (existingCategory) {
+      throw new ApiError(409,
+        `Another category with name '${categoryName}' already exists`
+      );
+    }
+  }
+
+  const updateData = {};
+  if (categoryName) updateData.categoryName = categoryName;
+  if (categoryOrder !== undefined) updateData.categoryOrder = Number(categoryOrder);
+  if (categoryStatus !== undefined) updateData.categoryStatus =
+    String(categoryStatus) === "true" || categoryStatus === true;
+  if (req.file) {
+    updateData.categoryImage = `/${req.uploadFolder}/${req.file.filename}`;
+  }
+  const category = await categoryModel.findByIdAndUpdate(id, updateData, { new: true });
+  if (!category) {
+    throw new ApiError(404, "Category not found");
+  }
+
+  return res
+    .status(200)
+    .json(new ApiResponse(200, category, "Category updated successfully"));
+});
+// ==================== DELETE CATEGORY ====================
+const categoryDelete = asyncHandler(async (req, res) => {
+  const { id } = req.params;
+  const category = await categoryModel.findByIdAndUpdate(
+    id,
+    { isDeleted: true, deletedAt: new Date() },
+    { new: true }
+  );
+
+  if (!category) {
+    throw new ApiError(404, "Category not found");
+  }
+
+  return res
+    .status(200)
+    .json(new ApiResponse(200, {}, "Category deleted successfully"));
+});
+// ==================== DELETE MANY CATEGORIES ====================
+const multiDelete = asyncHandler(async (req, res) => {
+  const { ids } = req.body;
+
+  if (!ids || !Array.isArray(ids) || ids.length === 0) {
+    throw new ApiError(400, "Valid array of IDs is required");
+  }
+
+  const result = await categoryModel.updateMany(
+    { _id: { $in: ids } },
+    { isDeleted: true, deletedAt: new Date() }
+  );
+
+  return res
+    .status(200)
+    .json(
+      new ApiResponse(
+        200,
+        {
+          matchedCount: result.matchedCount,
+          modifiedCount: result.modifiedCount,
+        },
+        "Categories deleted successfully"
+      )
+    );
+});
+// ==================== CHANGE STATUS ====================
+const changeStatus = asyncHandler(async (req, res) => {
+  const { id, ids, status } = req.body;
+
+  if (ids && Array.isArray(ids) && ids.length > 0) {
+    const result = await categoryModel.find({ _id: { $in: ids } });
+    const updatePromises = result.map((category) => {
+      return categoryModel.findByIdAndUpdate(
+        category._id,
+        { categoryStatus: !category.categoryStatus },
+        { new: true }
+      );
+    });
+
+    await Promise.all(updatePromises);
+    return res
+      .status(200)
+      .json(new ApiResponse(200, {}, "Statuses toggled successfully"));
+  }
+
+  if (!id) {
+    throw new ApiError(400, "ID or IDs are required");
+  }
+
+  const currentCategory = await categoryModel.findById(id);
+  if (!currentCategory) throw new ApiError(404, "Category not found");
+
+  const newStatus =
+    status !== undefined
+      ? String(status) === "true" || status === true
+      : !currentCategory.categoryStatus;
+
+  const category = await categoryModel.findByIdAndUpdate(
+    id,
+    { categoryStatus: newStatus },
+    { new: true }
+  );
+
+  return res
+    .status(200)
+    .json(new ApiResponse(200, category, "Status updated successfully"));
+});
+// ==================== EXPORTS ====================
+module.exports = {
+  categoryCreate,
+  categoryView,
+  categoryUpdate,
+  categoryDelete,
+  multiDelete,
+  changeStatus,
+};

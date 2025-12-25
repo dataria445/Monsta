@@ -1,0 +1,10 @@
+const express=require("express")
+const { newsletterCreate, newsletterView, newsletterDelete, newsletterUpdate, multiDelete, changeStatus } = require("../../controllers/newsletter.controller")
+const newsletterRoutes=express.Router()
+newsletterRoutes.post("/create",newsletterCreate)
+newsletterRoutes.get("/view",newsletterView)
+newsletterRoutes.delete("/delete/:id",newsletterDelete)
+newsletterRoutes.put("/update/:id",newsletterUpdate)
+newsletterRoutes.post("/multiDelete", multiDelete)
+newsletterRoutes.post("/changeStatus",changeStatus)
+module.exports={newsletterRoutes}

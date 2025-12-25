@@ -1,0 +1,246 @@
+/**
+ * ============================================================================
+ * SubSubCategory Controller
+ * ============================================================================
+ * 
+ * @description Controller for managing third-level product categorization
+ * @module controllers/subSubCategory
+ * @requires utils/apiUtils - Async handler, API response and error utilities
+ * @requires models/subSubCategory.model - SubSubCategory data model
+ * @requires models/category.model - Category data model for parent references
+ * @requires models/subCategory.model - SubCategory data model for references
+ * 
+ * Available Operations:
+ * - subSubCategoryCreate: Create a new sub-subcategory
+ * - subSubCategoryView: Retrieve all active sub-subcategories
+ * - getParentCategory: Get all active parent categories
+ * - getSubCategoryByParent: Get subcategories by parent category ID
+ * - subSubCategoryUpdate: Update an existing sub-subcategory
+ * - subSubCategoryDelete: Soft delete a sub-subcategory
+ * - multiDelete: Bulk delete sub-subcategories
+ * - changeStatus: Toggle sub-subcategory status (active/inactive)
+ * 
+ * @author Monsta Team
+ * @version 1.0.0
+ * @since 2025-12-23
+ * ============================================================================
+ */
+
+const { asyncHandler, ApiResponse, ApiError } = require("../utils/apiUtils");
+const { subSubCategoryModel } = require("../models/subSubCategory.model");
+const { categoryModel } = require("../models/category.model");
+const { subCategoryModel } = require("../models/subCategory.model");
+// ==================== CREATE SUBSUBCATEGORY ====================
+const subSubCategoryCreate = asyncHandler(async (req, res) => {
+    let { subSubCategoryName, parentCategoryId, subCategoryId, subSubCategoryOrder, subSubCategoryStatus } = req.body;
+
+    if (!subSubCategoryName || subSubCategoryName === "" || !parentCategoryId || !subCategoryId) {
+        throw new ApiError(400, "SubSubCategory name, parent category, and sub category are required");
+    }
+
+    const parentExists = await categoryModel.findOne({ _id: parentCategoryId, isDeleted: false });
+    if (!parentExists) {
+        throw new ApiError(404, "Parent category not found or has been deleted");
+    }
+
+    const subCategoryExists = await subCategoryModel.findOne({ _id: subCategoryId, isDeleted: false });
+    if (!subCategoryExists) {
+        throw new ApiError(404, "SubCategory not found or has been deleted");
+    }
+
+    // Duplicate check
+    const existingSubSubCategory = await subSubCategoryModel.findOne({
+        subSubCategoryName: subSubCategoryName,
+        subCategoryId,
+        isDeleted: false
+    });
+    if (existingSubSubCategory) {
+        throw new ApiError(409, `SubSubCategory '${subSubCategoryName}' already exists under this subcategory`);
+    }
+
+    const order = subSubCategoryOrder ? Number(subSubCategoryOrder) : 0;
+    const status = subSubCategoryStatus !== undefined ? (String(subSubCategoryStatus) === "true" || subSubCategoryStatus === true) : true;
+
+    if (!req.file) {
+        throw new ApiError(400, "SubSubCategory image is required");
+    }
+
+    const subSubCategoryImage = `/${req.uploadFolder}/${req.file.filename}`;
+
+    const subSubCategory = await subSubCategoryModel.create({
+        subSubCategoryName: subSubCategoryName,
+        parentCategoryId,
+        subCategoryId,
+        subSubCategoryImage,
+        subSubCategoryOrder: order,
+        subSubCategoryStatus: status
+    });
+
+    return res
+        .status(201)
+        .json(new ApiResponse(201, subSubCategory, "SubSubCategory created successfully"));
+});
+// ==================== VIEW SUBSUBCATEGORIES ====================
+const subSubCategoryView = asyncHandler(async (req, res) => {
+    let subSubCategories = await subSubCategoryModel
+        .find({ isDeleted: false })
+        .populate("parentCategoryId", "categoryName")
+        .populate("subCategoryId", "subCategoryName")
+        .sort({ subSubCategoryOrder: 1, createdAt: -1 })
+        .lean();
+
+    // Mapping for legacy field
+    subSubCategories = subSubCategories.map(subCat => {
+        if (!subCat.subSubCategoryImage && subCat.subSubCategoryImageUrl) {
+            subCat.subSubCategoryImage = subCat.subSubCategoryImageUrl;
+        }
+        return subCat;
+    });
+
+    return res
+        .status(200)
+        .json(new ApiResponse(200, subSubCategories, "SubSubCategories retrieved successfully"));
+});
+// ==================== GET PARENT CATEGORY ====================
+const getParentCategory = asyncHandler(async (req, res) => {
+    const categories = await categoryModel.find({ isDeleted: false, categoryStatus: true });
+    return res
+        .status(200)
+        .json(new ApiResponse(200, categories, "Parent categories retrieved successfully"));
+});
+// ==================== GET SUBCATEGORY BY PARENT ====================
+const getSubCategoryByParent = asyncHandler(async (req, res) => {
+    const { parentId } = req.params;
+
+    const subCategories = await subCategoryModel.find({
+        parentCategoryId: parentId,
+        isDeleted: false,
+        subCategoryStatus: true
+    });
+
+    return res
+        .status(200)
+        .json(new ApiResponse(200, subCategories, "SubCategories retrieved successfully"));
+});
+// ==================== UPDATE SUBSUBCATEGORY ====================
+const subSubCategoryUpdate = asyncHandler(async (req, res) => {
+    const { id } = req.params;
+    let { subSubCategoryName, parentCategoryId, subCategoryId, subSubCategoryOrder, subSubCategoryStatus } = req.body;
+
+    if (subSubCategoryName && subCategoryId) {
+        const existingSubSubCategory = await subSubCategoryModel.findOne({
+            subSubCategoryName: subSubCategoryName,
+            subCategoryId,
+            _id: { $ne: id },
+            isDeleted: false
+        });
+        if (existingSubSubCategory) {
+            throw new ApiError(409, `Another sub-subcategory with name '${subSubCategoryName}' already exists under this subcategory`);
+        }
+    }
+
+    const updateData = {};
+    if (subSubCategoryName) updateData.subSubCategoryName = subSubCategoryName;
+    if (parentCategoryId) updateData.parentCategoryId = parentCategoryId;
+    if (subCategoryId) updateData.subCategoryId = subCategoryId;
+    if (subSubCategoryOrder !== undefined) updateData.subSubCategoryOrder = Number(subSubCategoryOrder);
+    if (subSubCategoryStatus !== undefined) updateData.subSubCategoryStatus = (String(subSubCategoryStatus) === "true" || subSubCategoryStatus === true);
+
+    if (req.file) {
+        updateData.subSubCategoryImage = `/${req.uploadFolder}/${req.file.filename}`;
+    }
+
+    const subSubCategory = await subSubCategoryModel.findByIdAndUpdate(id, updateData, {
+        new: true,
+    });
+
+    if (!subSubCategory) {
+        throw new ApiError(404, "SubSubCategory not found");
+    }
+
+    return res
+        .status(200)
+        .json(new ApiResponse(200, subSubCategory, "SubSubCategory updated successfully"));
+});
+// ==================== DELETE SUBSUBCATEGORY ====================
+const subSubCategoryDelete = asyncHandler(async (req, res) => {
+    const { id } = req.params;
+    const subSubCategory = await subSubCategoryModel.findByIdAndUpdate(
+        id,
+        { isDeleted: true, deletedAt: new Date() },
+        { new: true }
+    );
+
+    if (!subSubCategory) {
+        throw new ApiError(404, "SubSubCategory not found");
+    }
+
+    return res
+        .status(200)
+        .json(new ApiResponse(200, {}, "SubSubCategory deleted successfully"));
+});
+// ==================== DELETE MANY SUBSUBCATEGORIES ====================
+const multiDelete = asyncHandler(async (req, res) => {
+    const { ids } = req.body;
+
+    if (!ids || !Array.isArray(ids) || ids.length === 0) {
+        throw new ApiError(400, "Valid array of IDs is required");
+    }
+
+    const result = await subSubCategoryModel.updateMany(
+        { _id: { $in: ids } },
+        { isDeleted: true, deletedAt: new Date() }
+    );
+
+    return res
+        .status(200)
+        .json(new ApiResponse(200, { matchedCount: result.matchedCount, modifiedCount: result.modifiedCount }, "SubSubCategories deleted successfully"));
+});
+// ==================== CHANGE STATUS ====================
+const changeStatus = asyncHandler(async (req, res) => {
+    const { id, ids, status } = req.body;
+
+    if (ids && Array.isArray(ids) && ids.length > 0) {
+        const result = await subSubCategoryModel.find({ _id: { $in: ids } });
+        const updatePromises = result.map((subSubCategory) => {
+            return subSubCategoryModel.findByIdAndUpdate(
+                subSubCategory._id,
+                { subSubCategoryStatus: !subSubCategory.subSubCategoryStatus },
+                { new: true }
+            );
+        });
+
+        await Promise.all(updatePromises);
+        return res.status(200).json(new ApiResponse(200, {}, "Statuses toggled successfully"));
+    }
+
+    if (!id) {
+        throw new ApiError(400, "ID or IDs are required");
+    }
+
+    const currentSubSubCategory = await subSubCategoryModel.findById(id);
+    if (!currentSubSubCategory) throw new ApiError(404, "SubSubCategory not found");
+
+    const newStatus = status !== undefined ? (String(status) === "true" || status === true) : !currentSubSubCategory.subSubCategoryStatus;
+
+    const subSubCategory = await subSubCategoryModel.findByIdAndUpdate(
+        id,
+        { subSubCategoryStatus: newStatus },
+        { new: true }
+    );
+
+    return res
+        .status(200)
+        .json(new ApiResponse(200, subSubCategory, "Status updated successfully"));
+});
+// ==================== EXPORTS ====================
+module.exports = {
+    subSubCategoryCreate,
+    subSubCategoryView,
+    getParentCategory,
+    getSubCategoryByParent,
+    subSubCategoryUpdate,
+    subSubCategoryDelete,
+    multiDelete,
+    changeStatus,
+};

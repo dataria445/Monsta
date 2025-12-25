@@ -1,0 +1,180 @@
+/**
+ * ============================================================================
+ * Slider Controller
+ * ============================================================================
+ * 
+ * @description Controller for managing homepage slider/carousel images
+ * @module controllers/slider
+ * @requires utils/apiUtils - Async handler, API response and error utilities
+ * @requires models/slider.model - Slider data model
+ * 
+ * Available Operations:
+ * - sliderCreate: Create a new slider entry with image
+ * - sliderView: Retrieve all active sliders
+ * - sliderUpdate: Update an existing slider
+ * - sliderDelete: Soft delete a slider
+ * - multiDelete: Bulk delete sliders
+ * - changeStatus: Toggle slider status (active/inactive)
+ * 
+ * @author Monsta Team
+ * @version 1.0.0
+ * @since 2025-12-23
+ * ============================================================================
+ */
+
+const { asyncHandler, ApiResponse, ApiError } = require("../utils/apiUtils");
+const { sliderModel } = require("../models/slider.model");
+
+// ==================== CREATE SLIDER ====================
+
+const sliderCreate = asyncHandler(async (req, res) => {
+    let { sliderTitle, sliderOrder, sliderStatus } = req.body;
+
+    if (!sliderTitle || sliderTitle === "") {
+        throw new ApiError(400, "Slider title is required");
+    }
+
+    // Duplicate check
+    const existingSlider = await sliderModel.findOne({ sliderTitle: sliderTitle, isDeleted: false });
+    if (existingSlider) {
+        throw new ApiError(409, `Slider with title '${sliderTitle}' already exists`);
+    }
+
+    const order = sliderOrder ? Number(sliderOrder) : 0;
+    const status = sliderStatus !== undefined ? (String(sliderStatus) === "true" || sliderStatus === true) : true;
+
+    if (!req.file) {
+        throw new ApiError(400, "Slider image is required");
+    }
+
+    const sliderImageUrl = `/${req.uploadFolder}/${req.file.filename}`;
+
+    const slider = await sliderModel.create({
+        sliderTitle: sliderTitle,
+        sliderImageUrl: sliderImageUrl,
+        sliderOrder: order,
+        sliderStatus: status
+    });
+
+    return res
+        .status(201)
+        .json(new ApiResponse(201, slider, "Slider created successfully"));
+});
+// ==================== VIEW SLIDERS ====================
+const sliderView = asyncHandler(async (req, res) => {
+    const sliders = await sliderModel.find({ isDeleted: false }).sort({ sliderOrder: 1, createdAt: -1 });
+    return res
+        .status(200)
+        .json(new ApiResponse(200, sliders, "Sliders retrieved successfully"));
+});
+
+// ==================== UPDATE SLIDER ====================
+const sliderUpdate = asyncHandler(async (req, res) => {
+    const { id } = req.params;
+    let { sliderTitle, sliderOrder, sliderStatus } = req.body;
+
+    const updateData = {};
+    if (sliderTitle) updateData.sliderTitle = sliderTitle;
+    if (sliderOrder !== undefined) updateData.sliderOrder = Number(sliderOrder);
+    if (sliderStatus !== undefined) updateData.sliderStatus = (String(sliderStatus) === "true" || sliderStatus === true);
+
+    if (req.file) {
+        updateData.sliderImageUrl = `/${req.uploadFolder}/${req.file.filename}`;
+    }
+
+    const slider = await sliderModel.findByIdAndUpdate(id, updateData, {
+        new: true,
+    });
+
+    if (!slider) {
+        throw new ApiError(404, "Slider not found");
+    }
+
+    return res
+        .status(200)
+        .json(new ApiResponse(200, slider, "Slider updated successfully"));
+});
+
+// ==================== DELETE SLIDER ====================
+const sliderDelete = asyncHandler(async (req, res) => {
+    const { id } = req.params;
+    const slider = await sliderModel.findByIdAndUpdate(
+        id,
+        { isDeleted: true, deletedAt: new Date() },
+        { new: true }
+    );
+
+    if (!slider) {
+        throw new ApiError(404, "Slider not found");
+    }
+
+    return res
+        .status(200)
+        .json(new ApiResponse(200, {}, "Slider deleted successfully"));
+});
+
+// ==================== DELETE MANY SLIDERS ====================
+const multiDelete = asyncHandler(async (req, res) => {
+    const { ids } = req.body;
+
+    if (!ids || !Array.isArray(ids) || ids.length === 0) {
+        throw new ApiError(400, "Valid array of IDs is required");
+    }
+
+    const result = await sliderModel.updateMany(
+        { _id: { $in: ids } },
+        { isDeleted: true, deletedAt: new Date() }
+    );
+
+    return res
+        .status(200)
+        .json(new ApiResponse(200, { matchedCount: result.matchedCount, modifiedCount: result.modifiedCount }, "Sliders deleted successfully"));
+});
+
+// ==================== CHANGE STATUS ====================
+const changeStatus = asyncHandler(async (req, res) => {
+    const { id, ids, status } = req.body;
+
+    if (ids && Array.isArray(ids) && ids.length > 0) {
+        const result = await sliderModel.find({ _id: { $in: ids } });
+        const updatePromises = result.map((slider) => {
+            return sliderModel.findByIdAndUpdate(
+                slider._id,
+                { sliderStatus: !slider.sliderStatus },
+                { new: true }
+            );
+        });
+
+        await Promise.all(updatePromises);
+        return res.status(200).json(new ApiResponse(200, {}, "Statuses toggled successfully"));
+    }
+
+    if (!id) {
+        throw new ApiError(400, "ID or IDs are required");
+    }
+
+    const currentSlider = await sliderModel.findById(id);
+    if (!currentSlider) throw new ApiError(404, "Slider not found");
+
+    const newStatus = status !== undefined ? (String(status) === "true" || status === true) : !currentSlider.sliderStatus;
+
+    const slider = await sliderModel.findByIdAndUpdate(
+        id,
+        { sliderStatus: newStatus },
+        { new: true }
+    );
+
+    return res
+        .status(200)
+        .json(new ApiResponse(200, slider, "Status updated successfully"));
+});
+
+// ==================== EXPORTS ====================
+module.exports = {
+    sliderCreate,
+    sliderView,
+    sliderUpdate,
+    sliderDelete,
+    multiDelete,
+    changeStatus,
+};

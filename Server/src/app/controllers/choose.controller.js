@@ -1,0 +1,183 @@
+/**
+ * ============================================================================
+ * Choose (Why Choose Us) Controller
+ * ============================================================================
+ * 
+ * @description Controller for managing "Why Choose Us" section entries with images
+ * @module controllers/choose
+ * @requires utils/apiUtils - Async handler, API response and error utilities
+ * @requires models/choose.model - Choose data model
+ * 
+ * Available Operations:
+ * - chooseCreate: Create a new "Why Choose Us" entry with image
+ * - chooseView: Retrieve all active entries
+ * - chooseUpdate: Update an existing entry
+ * - chooseDelete: Soft delete an entry
+ * - multiDelete: Bulk delete entries
+ * - changeStatus: Toggle entry status (active/inactive)
+ * 
+ * @author Monsta Team
+ * @version 1.0.0
+ * @since 2025-12-23
+ * ============================================================================
+ */
+
+const { asyncHandler, ApiResponse, ApiError } = require("../utils/apiUtils");
+const { chooseModel } = require("../models/choose.model");
+// ==================== CREATE CHOOSE ====================
+const chooseCreate = asyncHandler(async (req, res) => {
+    let { chooseTitle, chooseOrder, chooseStatus } = req.body;
+
+    if (!chooseTitle || chooseTitle === "") {
+        throw new ApiError(400, "Choose title is required");
+    }
+
+    const existingChoose = await chooseModel.findOne({ chooseTitle: chooseTitle, isDeleted: false });
+    if (existingChoose) {
+        throw new ApiError(409, `Entry with title '${chooseTitle}' already exists`);
+    }
+
+    const order = chooseOrder ? Number(chooseOrder) : 0;
+    const status = chooseStatus !== undefined ? (String(chooseStatus) === "true" || chooseStatus === true) : true;
+
+    if (!req.file) {
+        throw new ApiError(400, "Choose image is required");
+    }
+
+    let chooseImageUrl = `/${req.uploadFolder}/${req.file.filename}`;
+
+    const choose = await chooseModel.create({
+        chooseTitle: chooseTitle,
+        chooseImageUrl,
+        chooseOrder: order,
+        chooseStatus: status
+    });
+
+    return res
+        .status(201)
+        .json(new ApiResponse(201, choose, "Choose entry created successfully"));
+});
+// ==================== VIEW CHOOSE ====================
+const chooseView = asyncHandler(async (req, res) => {
+    const chooseEntries = await chooseModel.find({ isDeleted: false }).sort({ chooseOrder: 1, createdAt: -1 });
+    return res
+        .status(200)
+        .json(new ApiResponse(200, chooseEntries, "Choose entries retrieved successfully"));
+});
+// ==================== UPDATE CHOOSE ====================
+const chooseUpdate = asyncHandler(async (req, res) => {
+    const { id } = req.params;
+    let { chooseTitle, chooseOrder, chooseStatus } = req.body;
+
+    if (chooseTitle) {
+        const existingChoose = await chooseModel.findOne({
+            chooseTitle: chooseTitle,
+            _id: { $ne: id },
+            isDeleted: false
+        });
+        if (existingChoose) {
+            throw new ApiError(409, `Another entry with title '${chooseTitle}' already exists`);
+        }
+    }
+
+    const updateData = {};
+    if (chooseTitle) updateData.chooseTitle = chooseTitle;
+    if (chooseOrder !== undefined) updateData.chooseOrder = Number(chooseOrder);
+    if (chooseStatus !== undefined) updateData.chooseStatus = (String(chooseStatus) === "true" || chooseStatus === true);
+
+    if (req.file) {
+        updateData.chooseImageUrl = `/${req.uploadFolder}/${req.file.filename}`;
+    }
+
+    const choose = await chooseModel.findByIdAndUpdate(id, updateData, {
+        new: true,
+    });
+
+    if (!choose) {
+        throw new ApiError(404, "Choose entry not found");
+    }
+
+    return res
+        .status(200)
+        .json(new ApiResponse(200, choose, "Choose entry updated successfully"));
+});
+// ==================== DELETE CHOOSE ====================
+const chooseDelete = asyncHandler(async (req, res) => {
+    const { id } = req.params;
+    const choose = await chooseModel.findByIdAndUpdate(
+        id,
+        { isDeleted: true, deletedAt: new Date() },
+        { new: true }
+    );
+
+    if (!choose) {
+        throw new ApiError(404, "Choose entry not found");
+    }
+
+    return res
+        .status(200)
+        .json(new ApiResponse(200, {}, "Choose entry deleted successfully"));
+});
+// ==================== DELETE MANY CHOOSE ====================
+const multiDelete = asyncHandler(async (req, res) => {
+    const { ids } = req.body;
+
+    if (!ids || !Array.isArray(ids) || ids.length === 0) {
+        throw new ApiError(400, "Valid array of IDs is required");
+    }
+
+    const result = await chooseModel.updateMany(
+        { _id: { $in: ids } },
+        { isDeleted: true, deletedAt: new Date() }
+    );
+
+    return res
+        .status(200)
+        .json(new ApiResponse(200, { matchedCount: result.matchedCount, modifiedCount: result.modifiedCount }, "Choose entries deleted successfully"));
+});
+// ==================== CHANGE STATUS ====================
+const changeStatus = asyncHandler(async (req, res) => {
+    const { id, ids, status } = req.body;
+
+    if (ids && Array.isArray(ids) && ids.length > 0) {
+        const result = await chooseModel.find({ _id: { $in: ids } });
+        const updatePromises = result.map((entry) => {
+            return chooseModel.findByIdAndUpdate(
+                entry._id,
+                { chooseStatus: !entry.chooseStatus },
+                { new: true }
+            );
+        });
+
+        await Promise.all(updatePromises);
+        return res.status(200).json(new ApiResponse(200, {}, "Statuses toggled successfully"));
+    }
+
+    if (!id) {
+        throw new ApiError(400, "ID or IDs are required");
+    }
+
+    const currentChoose = await chooseModel.findById(id);
+    if (!currentChoose) throw new ApiError(404, "Choose entry not found");
+
+    const newStatus = status !== undefined ? (String(status) === "true" || status === true) : !currentChoose.chooseStatus;
+
+    const choose = await chooseModel.findByIdAndUpdate(
+        id,
+        { chooseStatus: newStatus },
+        { new: true }
+    );
+
+    return res
+        .status(200)
+        .json(new ApiResponse(200, choose, "Status updated successfully"));
+});
+// ==================== EXPORTS ====================
+module.exports = {
+    chooseCreate,
+    chooseView,
+    chooseUpdate,
+    chooseDelete,
+    multiDelete,
+    changeStatus,
+};

@@ -1,0 +1,10 @@
+const express=require("express")
+const { contactEnquiryCreate, contactEnquiryView, contactEnquiryDelete, contactEnquiryUpdate, multiDelete, changeStatus } = require("../../controllers/contactEnquiry.controller")
+const contactEnquiryRoutes=express.Router()
+contactEnquiryRoutes.post("/create",contactEnquiryCreate)
+contactEnquiryRoutes.get("/view",contactEnquiryView)
+contactEnquiryRoutes.delete("/delete/:id",contactEnquiryDelete)
+contactEnquiryRoutes.put("/update/:id",contactEnquiryUpdate)
+contactEnquiryRoutes.post("/multiDelete", multiDelete)
+contactEnquiryRoutes.post("/changeStatus",changeStatus)
+module.exports={contactEnquiryRoutes}

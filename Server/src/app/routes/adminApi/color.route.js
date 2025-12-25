@@ -1,0 +1,10 @@
+const express = require("express")
+const { colorCreate, colorView, colorDelete, colorUpdate, changeStatus, multiDelete } = require("../../controllers/color.controller")
+const colorRoutes = express.Router()
+colorRoutes.post("/create", colorCreate)
+colorRoutes.get("/view", colorView)
+colorRoutes.delete("/delete/:id", colorDelete)
+colorRoutes.put("/update/:id", colorUpdate)
+colorRoutes.post("/multiDelete", multiDelete)
+colorRoutes.post("/changeStatus", changeStatus)
+module.exports = { colorRoutes }

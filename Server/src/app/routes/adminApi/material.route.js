@@ -1,0 +1,10 @@
+const express=require("express")
+const { materialCreate, materialDelete, materialUpdate, multiDelete, changeStatus, materialView } = require("../../controllers/material.controller")
+const materialRoutes=express.Router()
+materialRoutes.post("/create",materialCreate)
+materialRoutes.get("/view",materialView)
+materialRoutes.delete("/delete/:id",materialDelete)
+materialRoutes.put("/update/:id",materialUpdate)
+materialRoutes.post("/multiDelete", multiDelete)
+materialRoutes.post("/changeStatus",changeStatus)
+module.exports={materialRoutes}
