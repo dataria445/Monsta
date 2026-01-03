@@ -1,11 +1,25 @@
+/**
+ * ============================================================================
+ * ApiError Class
+ * ============================================================================
+ * 
+ * @description Custom Error class for handling API-specific exceptions.
+ * Includes HTTP status codes and structured error messages.
+ * @module utils/apiError
+ * @extends Error
+ * 
+ * @author Monsta Team
+ * @version 1.0.0
+ * ============================================================================
+ */
 
 class ApiError extends Error {
-  /*
-    @constructor
-    {number} statusCode - HTTP status code
-    {string} [message="something went wrong"] - Error message
-    {Array} [errors=[]] - Array of validation errors
-    {string} [stack=""] - Error stack trace
+  /**
+   * @constructor
+   * @param {number} statusCode - HTTP status code
+   * @param {string} [message="something went wrong"] - Error message
+   * @param {Array} [errors=[]] - Array of validation errors
+   * @param {string} [stack=""] - Error stack trace
    */
   constructor(
     statusCode,
@@ -27,4 +41,4 @@ class ApiError extends Error {
   }
 }
 
-module.exports = { ApiError }
+module.exports = { ApiError };

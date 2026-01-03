@@ -24,8 +24,6 @@
 
 const { asyncHandler, ApiResponse, ApiError } = require("../utils/apiUtils");
 const { sliderModel } = require("../models/slider.model");
-const { uploadOnCloudinary } = require("../utils/cloudinary");
-
 
 // ==================== CREATE SLIDER ====================
 
@@ -49,13 +47,7 @@ const sliderCreate = asyncHandler(async (req, res) => {
         throw new ApiError(400, "Slider image is required");
     }
 
-    // Using dynamic req.uploadFolder from multer
-    const cloudinaryRes = await uploadOnCloudinary(req.file.buffer, req.uploadFolder);
-
-    if (!cloudinaryRes) {
-        throw new ApiError(500, "Failed to upload slider image to Cloudinary");
-    }
-    const sliderImageUrl = cloudinaryRes.url;
+    const sliderImageUrl = `/${req.uploadFolder}/${req.file.filename}`;
 
     const slider = await sliderModel.create({
         sliderTitle: sliderTitle,
@@ -99,11 +91,7 @@ const sliderUpdate = asyncHandler(async (req, res) => {
     if (sliderStatus !== undefined) updateData.sliderStatus = (String(sliderStatus) === "true" || sliderStatus === true);
 
     if (req.file) {
-        // Update to dynamic folder
-        const cloudinaryRes = await uploadOnCloudinary(req.file.buffer, req.uploadFolder);
-        if (cloudinaryRes) {
-            updateData.sliderImageUrl = cloudinaryRes.url;
-        }
+        updateData.sliderImageUrl = `/${req.uploadFolder}/${req.file.filename}`;
     }
 
     const slider = await sliderModel.findByIdAndUpdate(id, updateData, {

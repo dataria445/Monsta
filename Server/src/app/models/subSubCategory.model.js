@@ -44,6 +44,10 @@ const subSubCategorySchema = new mongoose.Schema(
       type: Boolean,
       default: true,
     },
+    slug: {
+      type: String,
+      unique: true,
+    },
     isDeleted: {
       type: Boolean,
       default: false,

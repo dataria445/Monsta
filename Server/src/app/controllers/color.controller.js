@@ -66,10 +66,25 @@ const colorCreate = asyncHandler(async (req, res) => {
 // ==================== VIEW COLORS ====================
 
 const colorView = asyncHandler(async (req, res) => {
+  const { search } = req.query;
+  const filter = { isDeleted: { $in: [false, null] } };
+
+  // Search filter: Case-insensitive partial match on colorName/code or exact match on colorOrder
+  if (search) {
+    filter.$or = [
+      { colorName: { $regex: search, $options: "i" } },
+      { colorCode: { $regex: search, $options: "i" } },
+    ];
+    if (!isNaN(search) && search.trim() !== "") {
+      filter.$or.push({ colorOrder: Number(search) });
+    }
+  }
+
   const colors = await colorModel
-    .find({ isDeleted: false, deletedAt: null })
+    .find(filter)
     .sort({ colorOrder: 1, createdAt: -1 })
     .lean();
+
 
   res
     .status(200)
@@ -164,7 +179,7 @@ const multiDelete = asyncHandler(async (req, res) => {
 
 // ==================== CHANGE STATUS ====================
 const changeStatus = asyncHandler(async (req, res) => {
-  const {id,ids,status } = req.body;
+  const { id, ids, status } = req.body;
 
   if (ids && Array.isArray(ids) && ids.length > 0) {
     const result = await colorModel.find({ _id: { $in: ids } });

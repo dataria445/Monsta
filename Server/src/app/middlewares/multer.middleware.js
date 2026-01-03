@@ -1,44 +1,58 @@
+/**
+ * ============================================================================
+ * Multer Middleware
+ * ============================================================================
+ * 
+ * @description Configures Multer for handling multipart/form-data.
+ * Uses memory storage to provide file buffers for direct cloud uploads.
+ * This version wraps the multer methods to dynamically inject the target 
+ * Cloudinary folder into the request object.
+ * @module middlewares/multer
+ * @requires multer - Middleware for handling file uploads
+ * 
+ * @author Monsta Team
+ * @version 1.2.0
+ * @since 2025-12-23
+ * ============================================================================
+ */
+
 const multer = require("multer");
-const fs = require("fs");
-const path = require("path");
 
-
-const upload = (folderName = "common") => {
-  const storage = multer.diskStorage({
-
-    destination: function (req, file, cb) {
-      // Construct the full path: /project-root/Server/public/folderName
-      // Resolves to Server/public relative to this file (Server/src/app/middlewares/multer.middleware.js)
-      const uploadPath = path.join(__dirname, "../../../public", folderName);
-
-      // Automatically create folder if it doesn't exist
-      if (!fs.existsSync(uploadPath)) {
-        fs.mkdirSync(uploadPath, { recursive: true });
-      }
-
-      // Store the folder name on the request object  so the controller can access it for database storage or cleanup
-      // Return the upload path (null = no error)
-      req.uploadFolder = folderName;
-      cb(null, uploadPath);
-    },
-
-    filename: function (req, file, cb) {
-      // Generate unique suffix: timestamp + random number (0-1 billion) This ensures no two files will have the same name
-      const uniqueSuffix = Date.now() + "-" + Math.round(Math.random() * 1e9);
-
-      // Extract file extension (e.g., ".jpg", ".png", ".pdf")
-      const fileExt = path.extname(file.originalname);
-
-      // Get filename without extension (e.g., "profile-pic" from "profile-pic.jpg")
-      const baseName = path.basename(file.originalname, fileExt);
-
-      // Combine: baseName-uniqueSuffix.extension Example: vacation-photo-1735058423000-847562931.jpg
-      cb(null, `${baseName}-${uniqueSuffix}${fileExt}`);
-    },
+/**
+ * @function upload
+ * @description Initializes a Multer instance. Wraps standard methods (.single, 
+ * .array, .fields) to attach 'req.uploadFolder' for the controller to use.
+ * 
+ * @param {string} folderPath - The subfolder name (e.g., 'productImages').
+ * @returns {Object} Object containing wrapped multer middleware methods.
+ */
+const upload = (folderPath = "common") => {
+  const storage = multer.memoryStorage();
+  const multerInstance = multer({
+    storage,
+    limits: {
+      fileSize: 5 * 1024 * 1024, // 5MB limit
+    }
   });
 
-  // Return configured multer instance
-  return multer({ storage });
+  /**
+   * @function wrap
+   * @description Injection wrapper to set req.uploadFolder dynamically.
+   */
+  const wrap = (multerMethod) => {
+    return (req, res, next) => {
+      // Set the dynamic folder name with 'monsta/' prefix
+      req.uploadFolder = `monsta/${folderPath}`;
+      multerMethod(req, res, next);
+    };
+  };
+
+  return {
+    single: (fieldName) => wrap(multerInstance.single(fieldName)),
+    array: (fieldName, maxCount) => wrap(multerInstance.array(fieldName, maxCount)),
+    fields: (fieldsArray) => wrap(multerInstance.fields(fieldsArray)),
+    any: () => wrap(multerInstance.any()),
+  };
 };
 
 module.exports = upload;

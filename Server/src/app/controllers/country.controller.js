@@ -54,9 +54,21 @@ const countryCreate = asyncHandler(async (req, res) => {
 
 // ==================== VIEW COUNTRIES ====================
 const countryView = asyncHandler(async (req, res) => {
+    const { search } = req.query;
+    const filter = { isDeleted: { $in: [false, null] } };
+
+    // Search filter: Case-insensitive partial match on countryName or exact match on countryOrder
+    if (search) {
+        filter.$or = [{ countryName: { $regex: search, $options: "i" } }];
+        if (!isNaN(search) && search.trim() !== "") {
+            filter.$or.push({ countryOrder: Number(search) });
+        }
+    }
+
     const countries = await countryModel
-        .find({ isDeleted: false })
+        .find(filter)
         .sort({ countryOrder: 1, createdAt: -1 });
+
 
     return res
         .status(200)

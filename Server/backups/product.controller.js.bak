@@ -34,8 +34,6 @@ const { categoryModel } = require("../models/category.model");
 const { subCategoryModel } = require("../models/subCategory.model");
 const { subSubCategoryModel } = require("../models/subSubCategory.model");
 const { createSlug } = require("../utils/slug");
-const { uploadOnCloudinary } = require("../utils/cloudinary");
-
 
 // ==================== CREATE PRODUCT ====================
 const productCreate = asyncHandler(async (req, res) => {
@@ -59,17 +57,16 @@ const productCreate = asyncHandler(async (req, res) => {
     colorId,
   } = req.body;
 
-  if (!productName || productName === "" || !productPrice || !productStock || !parentCategoryId) {
-    throw new ApiError(400, "Product name, price, stock, and parent category are required");
+  if (!productName||productName === "" ||!productPrice ||!productStock ||!parentCategoryId) {
+    throw new ApiError(400,"Product name, price, stock, and parent category are required");
   }
 
   // Duplicate check
-  const existingProduct = await productModel.findOne({
-    productName: productName,
+  const existingProduct = await productModel.findOne({productName: productName,
     isDeleted: false,
   });
   if (existingProduct) {
-    throw new ApiError(409, `Product with name '${productName}' already exists`
+    throw new ApiError(409,`Product with name '${productName}' already exists`
     );
   }
 
@@ -80,25 +77,18 @@ const productCreate = asyncHandler(async (req, res) => {
   // req.uploadFolder is set by the multer middleware based on the route config
 
   if (req.files) {
-    // Dynamic Folders: Uses req.uploadFolder injected by multer middleware (e.g., 'monsta/productImages')
     if (req.files.productImage && req.files.productImage[0]) {
-      const res = await uploadOnCloudinary(req.files.productImage[0].buffer, req.uploadFolder);
-      if (res) productImage = res.url;
+      productImage = `/${req.uploadFolder}/${req.files.productImage[0].filename}`;
     }
 
     if (req.files.productBackImage && req.files.productBackImage[0]) {
-      const res = await uploadOnCloudinary(req.files.productBackImage[0].buffer, req.uploadFolder);
-      if (res) productBackImage = res.url;
+      productBackImage = `/${req.uploadFolder}/${req.files.productBackImage[0].filename}`;
     }
 
     if (req.files.productImageGallery) {
-      const galleryPromises = req.files.productImageGallery.map((file) =>
-        uploadOnCloudinary(file.buffer, req.uploadFolder)
+      productImageGallery = req.files.productImageGallery.map(
+        (file) => `/${req.uploadFolder}/${file.filename}`
       );
-      const galleryResponses = await Promise.all(galleryPromises);
-      productImageGallery = galleryResponses
-        .filter((res) => res !== null)
-        .map((res) => res.url);
     }
   }
 
@@ -250,25 +240,19 @@ const productUpdate = asyncHandler(async (req, res) => {
   }
 
   if (req.files) {
-    // Dynamic Folders: Uses req.uploadFolder injected by multer middleware (e.g., 'monsta/productImages')
+    // folder is available via req.uploadFolder
     if (req.files.productImage && req.files.productImage[0]) {
-      const res = await uploadOnCloudinary(req.files.productImage[0].buffer, req.uploadFolder);
-      if (res) body.productImage = res.url;
+      body.productImage = `/${req.uploadFolder}/${req.files.productImage[0].filename}`;
     }
 
     if (req.files.productBackImage && req.files.productBackImage[0]) {
-      const res = await uploadOnCloudinary(req.files.productBackImage[0].buffer, req.uploadFolder);
-      if (res) body.productBackImage = res.url;
+      body.productBackImage = `/${req.uploadFolder}/${req.files.productBackImage[0].filename}`;
     }
 
     if (req.files.productImageGallery) {
-      const galleryPromises = req.files.productImageGallery.map((file) =>
-        uploadOnCloudinary(file.buffer, req.uploadFolder)
+      body.productImageGallery = req.files.productImageGallery.map(
+        (file) => `/${req.uploadFolder}/${file.filename}`
       );
-      const galleryResponses = await Promise.all(galleryPromises);
-      body.productImageGallery = galleryResponses
-        .filter((res) => res !== null)
-        .map((res) => res.url);
     }
   }
 

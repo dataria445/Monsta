@@ -25,8 +25,6 @@
 const { asyncHandler, ApiResponse, ApiError } = require("../utils/apiUtils");
 const { categoryModel } = require("../models/category.model");
 const { createSlug } = require("../utils/slug");
-const { uploadOnCloudinary } = require("../utils/cloudinary");
-
 
 // ==================== CREATE CATEGORY ====================
 const categoryCreate = asyncHandler(async (req, res) => {
@@ -58,14 +56,7 @@ const categoryCreate = asyncHandler(async (req, res) => {
     throw new ApiError(400, "Category image is required");
   }
 
-  // Upload the file buffer directly to Cloudinary using dynamic req.uploadFolder
-  const cloudinaryRes = await uploadOnCloudinary(req.file.buffer, req.uploadFolder);
-  if (!cloudinaryRes) {
-    throw new ApiError(500, "Failed to upload category image to Cloudinary");
-  }
-  const categoryImage = cloudinaryRes.url;
-
-
+  const categoryImage = `/${req.uploadFolder}/${req.file.filename}`;
 
   const category = await categoryModel.create({
     categoryName,
@@ -137,11 +128,7 @@ const categoryUpdate = asyncHandler(async (req, res) => {
     updateData.categoryStatus =
       String(categoryStatus) === "true" || categoryStatus === true;
   if (req.file) {
-    // For updates, we upload the new buffer using dynamic req.uploadFolder
-    const cloudinaryRes = await uploadOnCloudinary(req.file.buffer, req.uploadFolder);
-    if (cloudinaryRes) {
-      updateData.categoryImage = cloudinaryRes.url;
-    }
+    updateData.categoryImage = `/${req.uploadFolder}/${req.file.filename}`;
   }
   const category = await categoryModel.findByIdAndUpdate(id, updateData, {
     new: true,

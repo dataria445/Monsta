@@ -1,0 +1,112 @@
+const { asyncHandler, ApiResponse, ApiError } = require("../../utils/apiUtils");
+const { userModel } = require("../../models/user.model");
+const { uploadOnCloudinary } = require("../../utils/cloudinary");
+const { createSlug } = require("../../utils/slug");
+
+const sendOtp = asyncHandler(async (req, res) => {
+  let obj = { ...req.body };
+  console.log(obj);
+
+  res.status(200).json(new ApiResponse(200, {}, "OTP sent successfully"));
+});
+
+
+const register = asyncHandler(async (req, res) => {
+  const { username, password, fullname, email, phone, address, gender } = req.body;
+
+  // Validate all required fields
+  if ([username, email, password, fullname].some(field => !field || field.trim() === "")) {
+    throw new ApiError(400, "All fields are required");
+  }
+
+  // Check for existing user
+  const existedUser = await userModel.findOne({
+    $or: [
+      { username: username.toLowerCase() },
+      { email: email.toLowerCase() }
+    ]
+  });
+
+  if (existedUser) {
+    throw new ApiError(409, "User with email or username already exists");
+  }
+
+  // Handle avatar (required)
+  const avatarLocalPath = req.files?.avatar?.[0]?.path;
+  if (!avatarLocalPath) {
+    throw new ApiError(400, "Avatar file is required");
+  }
+
+  // Handle cover image (optional)
+  let coverImageLocalPath;
+  if (req.files && Array.isArray(req.files.coverImage) && req.files.coverImage.length > 0) {
+    coverImageLocalPath = req.files.coverImage[0].path;
+  }
+
+  // Upload to Cloudinary
+  const avatar = await uploadOnCloudinary(avatarLocalPath);
+  const coverImage = coverImageLocalPath ? await uploadOnCloudinary(coverImageLocalPath) : null;
+
+  if (!avatar) {
+    throw new ApiError(400, "Failed to upload avatar");
+  }
+
+  // Create user
+  const user = await userModel.create({
+    fullname: fullname.trim(),
+    avatar: avatar.url,
+    coverImage: coverImage?.url || "",
+    email: email.toLowerCase(),
+    password,
+    username: username.toLowerCase(),
+    phone,
+    address,
+    gender,
+    slug: createSlug(fullname)
+  });
+
+  // Fetch created user without sensitive fields
+  const createdUser = await userModel.findById(user._id).select("-password -refreshToken");
+
+  if (!createdUser) {
+    throw new ApiError(500, "Something went wrong while registering the user");
+  }
+
+  return res
+    .status(201)
+    .json(new ApiResponse(201, createdUser, "User registered successfully"));
+});
+
+
+
+
+const login = asyncHandler(async (req, res) => {
+  // Implementation for login
+  res.status(200).json(new ApiResponse(200, {}, "User logged in successfully"));
+});
+
+const forgotPassword = asyncHandler(async (req, res) => {
+  // Implementation for forgot password
+  res.status(200).json(new ApiResponse(200, {}, "Forgot password mail sent"));
+});
+
+const resetPassword = asyncHandler(async (req, res) => {
+  // Implementation for reset password
+  res.status(200).json(new ApiResponse(200, {}, "Password reset successfully"));
+});
+
+const updatePassword = asyncHandler(async (req, res) => {
+  // Implementation for update password
+  res
+    .status(200)
+    .json(new ApiResponse(200, {}, "Password updated successfully"));
+});
+
+module.exports = {
+  sendOtp,
+  register,
+  login,
+  forgotPassword,
+  resetPassword,
+  updatePassword,
+};

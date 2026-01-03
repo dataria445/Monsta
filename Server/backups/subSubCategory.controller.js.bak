@@ -31,8 +31,6 @@ const { subSubCategoryModel } = require("../models/subSubCategory.model");
 const { categoryModel } = require("../models/category.model");
 const { subCategoryModel } = require("../models/subCategory.model");
 const { createSlug } = require("../utils/slug");
-const { uploadOnCloudinary } = require("../utils/cloudinary");
-
 
 // ==================== CREATE SUBSUBCATEGORY ====================
 const subSubCategoryCreate = asyncHandler(async (req, res) => {
@@ -69,13 +67,7 @@ const subSubCategoryCreate = asyncHandler(async (req, res) => {
         throw new ApiError(400, "SubSubCategory image is required");
     }
 
-    // Higher security: Using dynamic req.uploadFolder from middleware
-    const cloudinaryRes = await uploadOnCloudinary(req.file.buffer, req.uploadFolder);
-
-    if (!cloudinaryRes) {
-        throw new ApiError(500, "Failed to upload sub-subcategory image to Cloudinary");
-    }
-    const subSubCategoryImage = cloudinaryRes.url;
+    const subSubCategoryImage = `/${req.uploadFolder}/${req.file.filename}`;
 
     const subSubCategory = await subSubCategoryModel.create({
         subSubCategoryName: subSubCategoryName,
@@ -164,11 +156,7 @@ const subSubCategoryUpdate = asyncHandler(async (req, res) => {
     if (subSubCategoryStatus !== undefined) updateData.subSubCategoryStatus = (String(subSubCategoryStatus) === "true" || subSubCategoryStatus === true);
 
     if (req.file) {
-        // Update logic: using dynamic folder
-        const cloudinaryRes = await uploadOnCloudinary(req.file.buffer, req.uploadFolder);
-        if (cloudinaryRes) {
-            updateData.subSubCategoryImage = cloudinaryRes.url;
-        }
+        updateData.subSubCategoryImage = `/${req.uploadFolder}/${req.file.filename}`;
     }
     if (subSubCategoryName) {
         updateData.slug = createSlug(subSubCategoryName);

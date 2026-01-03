@@ -1,5 +1,5 @@
 const express = require("express")
-const { productCreate, productView, getParentCategory, getSubCategory, getSubSubCategory, productDelete, productUpdate, multiDelete, changeStatus } = require("../../controllers/product.controller")
+const { productCreate, productView, getParentCategory, getSubCategory, getSubSubCategory, productDelete, productUpdate, multiDelete, changeStatus, productDetails } = require("../../controllers/product.controller")
 const upload = require("../../middlewares/multer.middleware")
 
 const productRoutes = express.Router()
@@ -19,5 +19,6 @@ productRoutes.delete("/delete/:id", productDelete)
 productRoutes.put("/update/:id", productUpload, productUpdate)
 productRoutes.post("/multiDelete", multiDelete)
 productRoutes.post("/changeStatus", changeStatus)
+productRoutes.get("/productDetails/:id", productDetails)
 
 module.exports = { productRoutes }

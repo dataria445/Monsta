@@ -10,15 +10,21 @@ import CategoryFilters from "./FilterandAddition/Categories/CategoryFilters";
 
 const SubSubCategory = () => {
   const [filterOpen, setFilterOpen] = useState(false);
+  const [search, setSearch] = useState("");
   const [subSubCategories, setSubSubCategories] = useState([]);
   const [allIds, setAllIds] = useState([]);
 
   const navigate = useNavigate();
   const apiBaseUrl = import.meta.env.VITE_APIBASE;
 
-  const getSubSubCategories = () => {
+  // Supports searching via the 'search' query parameter
+  const getSubSubCategories = (searchTerm = "") => {
+    const url = searchTerm
+      ? `${apiBaseUrl}/subsubcategory/view?search=${searchTerm}`
+      : `${apiBaseUrl}/subsubcategory/view`;
+
     axios
-      .get(`${apiBaseUrl}/subsubcategory/view`)
+      .get(url)
       .then((res) => {
         setSubSubCategories(res.data.data);
       })
@@ -29,8 +35,13 @@ const SubSubCategory = () => {
   };
 
   useEffect(() => {
-    getSubSubCategories();
-  }, []);
+    // Add a small delay (debounce) to avoid too many API calls
+    const delayDebounceFn = setTimeout(() => {
+      getSubSubCategories(search);
+    }, 500);
+
+    return () => clearTimeout(delayDebounceFn);
+  }, [search]);
 
   const getCheckedValue = (e) => {
     if (e.target.checked) {
@@ -129,6 +140,8 @@ const SubSubCategory = () => {
           </div>
           <input
             type="text"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
             placeholder="Search subsubcategory..."
             className="border rounded px-4 py-2 text-sm w-full sm:w-64 md:w-80"
           />
@@ -239,8 +252,8 @@ const SubSubCategory = () => {
                     <td className="px-6 py-4 text-center">
                       <span
                         className={`px-4 py-1 rounded-full text-xs font-bold ${item.subSubCategoryStatus
-                            ? "bg-green-100 text-green-800"
-                            : "bg-red-100 text-red-800"
+                          ? "bg-green-100 text-green-800"
+                          : "bg-red-100 text-red-800"
                           }`}
                       >
                         {item.subSubCategoryStatus ? "Active" : "Inactive"}

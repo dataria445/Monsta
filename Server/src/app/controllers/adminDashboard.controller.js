@@ -53,9 +53,22 @@ const admincreate = asyncHandler(async (req, res) => {
 
 // ==================== VIEW ADMINS ====================
 const adminView = asyncHandler(async (req, res) => {
+  const { search } = req.query;
+  const filter = { isDeleted: { $in: [false, null] } };
+
+  // Search filter: Case-insensitive partial match on name, email, or mobile
+  if (search) {
+    filter.$or = [
+      { dashboardAdminName: { $regex: search, $options: "i" } },
+      { dashboardAdminEmail: { $regex: search, $options: "i" } },
+      { dashboardAdminMobile: { $regex: search, $options: "i" } },
+    ];
+  }
+
   const admins = await adminDashboardModel
-    .find({ isDeleted: false })
+    .find(filter)
     .sort({ createdAt: -1 })
+
     .lean();
 
   return res

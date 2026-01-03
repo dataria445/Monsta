@@ -13,14 +13,20 @@ const Coupoun = () => {
   const [coupounAddition, setCoupounAddition] = useState(false);
   const navigate = useNavigate();
 
+  const [search, setSearch] = useState("");
   const [data, setData] = useState([]);
   const [allIds, setAllIds] = useState([]);
   const apiBaseUrl = import.meta.env.VITE_APIBASE;
 
   // Fetch Coupons
-  const getCoupoun = () => {
+  // Supports searching via the 'search' query parameter
+  const getCoupoun = (searchTerm = "") => {
+    const url = searchTerm
+      ? `${apiBaseUrl}/coupoun/view?search=${searchTerm}`
+      : `${apiBaseUrl}/coupoun/view`;
+
     axios
-      .get(`${apiBaseUrl}/coupoun/view`) // Note: 'coupoun' spelling from backend route
+      .get(url)
       .then((res) => {
         setData(res.data.data);
       })
@@ -30,8 +36,13 @@ const Coupoun = () => {
   };
 
   useEffect(() => {
-    getCoupoun();
-  }, []);
+    // Add a small delay (debounce) to avoid too many API calls
+    const delayDebounceFn = setTimeout(() => {
+      getCoupoun(search);
+    }, 500);
+
+    return () => clearTimeout(delayDebounceFn);
+  }, [search]);
 
   // Handle checkbox
   const getCheckedValue = (e) => {
@@ -133,6 +144,8 @@ const Coupoun = () => {
           </div>
           <input
             type="text"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
             placeholder="Search coupon..."
             className="border rounded px-4 py-2 text-sm w-full sm:w-64 md:w-80"
           />
@@ -187,10 +200,10 @@ const Coupoun = () => {
               <tr>
                 <th className="px-6 py-3 text-center">
                   <input
-                  readOnly
-                  checked={data.length === allIds.length}
-                  onClick={getInputHeadingCheck}
-                  type="checkbox" className="rounded" />
+                    readOnly
+                    checked={data.length === allIds.length}
+                    onClick={getInputHeadingCheck}
+                    type="checkbox" className="rounded" />
                 </th>
 
                 {/* LOOPED HEADERS */}

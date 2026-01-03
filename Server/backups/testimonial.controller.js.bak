@@ -24,8 +24,6 @@
 
 const { asyncHandler, ApiResponse, ApiError } = require("../utils/apiUtils");
 const { testimonialModel } = require("../models/testimonial.model");
-const { uploadOnCloudinary } = require("../utils/cloudinary");
-
 
 // ==================== CREATE TESTIMONIAL ====================
 
@@ -48,13 +46,7 @@ const testimonialCreate = asyncHandler(async (req, res) => {
         throw new ApiError(400, "Testimonial image is required");
     }
 
-    // Higher availability: Using dynamic req.uploadFolder
-    const cloudinaryRes = await uploadOnCloudinary(req.file.buffer, req.uploadFolder);
-
-    if (!cloudinaryRes) {
-        throw new ApiError(500, "Failed to upload testimonial image to Cloudinary");
-    }
-    const testimonialImageUrl = cloudinaryRes.url;
+    const testimonialImageUrl = `/${req.uploadFolder}/${req.file.filename}`;
 
     const testimonial = await testimonialModel.create({
         testimonialName: testimonialName,
@@ -111,11 +103,7 @@ const testimonialUpdate = asyncHandler(async (req, res) => {
     if (testimonialStatus !== undefined) updateData.testimonialStatus = (String(testimonialStatus) === "true" || testimonialStatus === true);
 
     if (req.file) {
-        // Dynamic update folder
-        const cloudinaryRes = await uploadOnCloudinary(req.file.buffer, req.uploadFolder);
-        if (cloudinaryRes) {
-            updateData.testimonialImageUrl = cloudinaryRes.url;
-        }
+        updateData.testimonialImageUrl = `/${req.uploadFolder}/${req.file.filename}`;
     }
 
     const testimonial = await testimonialModel.findByIdAndUpdate(id, updateData, {

@@ -64,9 +64,24 @@ const faqCreate = asyncHandler(async (req, res) => {
 });
 // ==================== VIEW FAQS ====================
 const faqView = asyncHandler(async (req, res) => {
+  const { search } = req.query;
+  const filter = { isDeleted: { $in: [false, null] } };
+
+  // Search filter: Case-insensitive partial match on faqQuestion, answer or exact match on faqOrder
+  if (search) {
+    filter.$or = [
+      { faqQuestion: { $regex: search, $options: "i" } },
+      { faqAnswer: { $regex: search, $options: "i" } },
+    ];
+    if (!isNaN(search) && search.trim() !== "") {
+      filter.$or.push({ faqOrder: Number(search) });
+    }
+  }
+
   const faqs = await faqModel
-    .find({ isDeleted: false })
+    .find(filter)
     .sort({ faqOrder: 1, createdAt: -1 });
+
   return res
     .status(200)
     .json(new ApiResponse(200, faqs, "FAQs retrieved successfully"));

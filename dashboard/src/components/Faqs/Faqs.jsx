@@ -6,24 +6,34 @@ import { ToastContainer, toast } from "react-toastify";
 
 import axios from "axios";
 const Faqs = () => {
+  const [search, setSearch] = useState({ faqQuestion: "" });
   const [data, setData] = useState([]);
   const [allIds, setAllIds] = useState([]);
 
   const navigate = useNavigate();
-
   const apiBaseUrl = import.meta.env.VITE_APIBASE;
 
   // Fetch FAQ records
-  const getFaqs = () => {
+  // Supports searching via the 'search' query parameter
+  const getFaqs = (searchTerm = "") => {
+    const url = searchTerm
+      ? `${apiBaseUrl}/faq/view?search=${searchTerm}`
+      : `${apiBaseUrl}/faq/view`;
+
     axios
-      .get(`${apiBaseUrl}/faq/view`)
+      .get(url)
       .then((res) => setData(res.data.data))
       .catch((err) => console.log("Error loading Faq", err));
   };
 
   useEffect(() => {
-    getFaqs();
-  }, []);
+    // Add a small delay (debounce) to avoid too many API calls
+    const delayDebounceFn = setTimeout(() => {
+      getFaqs(search.faqQuestion);
+    }, 500);
+
+    return () => clearTimeout(delayDebounceFn);
+  }, [search.faqQuestion]);
 
   // Handle checkbox selection
   const getCheckedValue = (e) => {
@@ -133,6 +143,9 @@ const Faqs = () => {
           </div>
           <input
             type="text"
+            name="faqQuestion"
+            value={search.faqQuestion}
+            onChange={(e) => setSearch({ ...search, [e.target.name]: e.target.value })}
             placeholder="Search..."
             className="border rounded px-3 py-2 text-sm w-full sm:w-64 md:w-80"
           />
@@ -231,8 +244,8 @@ const Faqs = () => {
                     <td className="px-4 py-2">
                       <span
                         className={`px-2 py-1 rounded-md text-xs font-medium ${item.faqStatus
-                            ? "bg-green-100 text-green-700"
-                            : "bg-red-100 text-red-700"
+                          ? "bg-green-100 text-green-700"
+                          : "bg-red-100 text-red-700"
                           }`}
                       >
                         {item.faqStatus ? "Active" : "Inactive"}

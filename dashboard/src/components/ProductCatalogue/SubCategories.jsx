@@ -14,6 +14,7 @@ const SubCategory = () => {
   // --- STATE MANAGEMENT ---
   const [filterOpen, setFilterOpen] = useState(false); // Toggle filter panel
   const [additionOpen, setAdditionOpen] = useState(false);
+  const [search, setSearch] = useState("");
   const [data, setData] = useState([]); // List of fetched subcategories
   const [allIds, setAllIds] = useState([]); // IDs selected for bulk actions
 
@@ -22,9 +23,14 @@ const SubCategory = () => {
 
   // --- FETCH DATA ---
   // Fetches all subcategories from the backend
-  const getSubCategories = () => {
+  // Supports searching via the 'search' query parameter
+  const getSubCategories = (searchTerm = "") => {
+    const url = searchTerm
+      ? `${apiBaseUrl}/subcategory/view?search=${searchTerm}`
+      : `${apiBaseUrl}/subcategory/view`;
+
     axios
-      .get(`${apiBaseUrl}/subcategory/view`)
+      .get(url)
       .then((res) => {
         setData(res.data.data);
       })
@@ -35,8 +41,13 @@ const SubCategory = () => {
   };
 
   useEffect(() => {
-    getSubCategories();
-  }, []);
+    // Add a small delay (debounce) to avoid too many API calls
+    const delayDebounceFn = setTimeout(() => {
+      getSubCategories(search);
+    }, 500);
+
+    return () => clearTimeout(delayDebounceFn);
+  }, [search]);
 
   // --- CHECKBOX HANDLER ---
   // Manages selection of individual rows
@@ -152,6 +163,8 @@ const SubCategory = () => {
           </div>
           <input
             type="text"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
             placeholder="Search subcategory..."
             className="border rounded px-4 py-2 text-sm w-full sm:w-64 md:w-80"
           />
@@ -279,8 +292,8 @@ const SubCategory = () => {
                     <td className="px-6 py-4 text-center">
                       <span
                         className={`px-4 py-1 rounded-full text-xs font-bold ${item.subCategoryStatus
-                            ? "bg-green-100 text-green-800"
-                            : "bg-red-100 text-red-800"
+                          ? "bg-green-100 text-green-800"
+                          : "bg-red-100 text-red-800"
                           }`}
                       >
                         {item.subCategoryStatus ? "Active" : "Inactive"}

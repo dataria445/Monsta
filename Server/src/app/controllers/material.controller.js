@@ -52,7 +52,19 @@ const materialCreate = asyncHandler(async (req, res) => {
 });
 // ==================== VIEW MATERIALS ====================
 const materialView = asyncHandler(async (req, res) => {
-    const materials = await materialModel.find({ isDeleted: false }).sort({ materialOrder: 1, createdAt: -1 });
+    const { search } = req.query;
+    const filter = { isDeleted: { $in: [false, null] } };
+
+    // Search filter: Case-insensitive partial match on materialName or exact match on materialOrder
+    if (search) {
+        filter.$or = [{ materialName: { $regex: search, $options: "i" } }];
+        if (!isNaN(search) && search.trim() !== "") {
+            filter.$or.push({ materialOrder: Number(search) });
+        }
+    }
+
+    const materials = await materialModel.find(filter).sort({ materialOrder: 1, createdAt: -1 });
+
     return res
         .status(200)
         .json(new ApiResponse(200, materials, "Materials retrieved successfully"));

@@ -24,8 +24,6 @@
 
 const { asyncHandler, ApiResponse, ApiError } = require("../utils/apiUtils");
 const { chooseModel } = require("../models/choose.model");
-const { uploadOnCloudinary } = require("../utils/cloudinary");
-
 // ==================== CREATE CHOOSE ====================
 const chooseCreate = asyncHandler(async (req, res) => {
     let { chooseTitle, chooseOrder, chooseStatus } = req.body;
@@ -46,13 +44,7 @@ const chooseCreate = asyncHandler(async (req, res) => {
         throw new ApiError(400, "Choose image is required");
     }
 
-    // Logic: Using dynamic req.uploadFolder
-    const cloudinaryRes = await uploadOnCloudinary(req.file.buffer, req.uploadFolder);
-
-    if (!cloudinaryRes) {
-        throw new ApiError(500, "Failed to upload image to Cloudinary");
-    }
-    let chooseImageUrl = cloudinaryRes.url;
+    let chooseImageUrl = `/${req.uploadFolder}/${req.file.filename}`;
 
     const choose = await chooseModel.create({
         chooseTitle: chooseTitle,
@@ -106,11 +98,7 @@ const chooseUpdate = asyncHandler(async (req, res) => {
     if (chooseStatus !== undefined) updateData.chooseStatus = (String(chooseStatus) === "true" || chooseStatus === true);
 
     if (req.file) {
-        // Update to the dynamic folder
-        const cloudinaryRes = await uploadOnCloudinary(req.file.buffer, req.uploadFolder);
-        if (cloudinaryRes) {
-            updateData.chooseImageUrl = cloudinaryRes.url;
-        }
+        updateData.chooseImageUrl = `/${req.uploadFolder}/${req.file.filename}`;
     }
 
     const choose = await chooseModel.findByIdAndUpdate(id, updateData, {

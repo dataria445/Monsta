@@ -10,7 +10,7 @@ import CategoryFilters from "./FilterandAddition/Categories/CategoryFilters";
 
 const Category = () => {
   const [categoryFilter, setCategoryFilter] = useState(false);
-
+  const [search, setSearch] = useState("");
   const [data, setData] = useState([]);
   const [allIds, setAllIds] = useState([]);
 
@@ -18,10 +18,14 @@ const Category = () => {
   const apiBaseUrl = import.meta.env.VITE_APIBASE;
 
   // Fetch all categories from the server
-  // Updates the 'data' state with the response
-  const getCategories = () => {
+  // Supports searching via the 'search' query parameter
+  const getCategories = (searchTerm = "") => {
+    const url = searchTerm
+      ? `${apiBaseUrl}/category/view?search=${searchTerm}`
+      : `${apiBaseUrl}/category/view`;
+
     axios
-      .get(`${apiBaseUrl}/category/view`)
+      .get(url)
       .then((res) => {
         setData(res.data.data);
       })
@@ -32,8 +36,13 @@ const Category = () => {
   };
 
   useEffect(() => {
-    getCategories();
-  }, []);
+    // Add a small delay (debounce) to avoid too many API calls
+    const delayDebounceFn = setTimeout(() => {
+      getCategories(search);
+    }, 500);
+
+    return () => clearTimeout(delayDebounceFn);
+  }, [search]);
 
   // Handle individual checkbox selection
   // Toggles the ID in the 'allIds' array
@@ -143,6 +152,8 @@ const Category = () => {
           </div>
           <input
             type="text"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
             placeholder="Search category..."
             className="border rounded px-4 py-2 text-sm w-full sm:w-64 md:w-80"
           />

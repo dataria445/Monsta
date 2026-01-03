@@ -77,6 +77,11 @@ const productSchema = new mongoose.Schema(
             type: Boolean,
             default: true,
         },
+        slug: {
+            type: String,
+            unique: true,
+        },
+
         parentCategoryId: {
             type: mongoose.Schema.Types.ObjectId,
             ref: "Category",

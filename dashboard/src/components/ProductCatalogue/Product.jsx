@@ -9,29 +9,58 @@ import ProductFilters from "./FilterandAddition/Products/ProductFilters";
 
 const Product = () => {
   const [filterOpen, setFilterOpen] = useState(false);
+  const [search, setSearch] = useState("");
   const [products, setProducts] = useState([]);
   const [allIds, setAllIds] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [productData, setProductData] = useState(null)
 
   const navigate = useNavigate();
   const apiBaseUrl = import.meta.env.VITE_APIBASE;
 
-  const getProducts = () => {
+  const getProducts = (searchTerm = "") => {
+    setLoading(true);
+    const url = searchTerm
+      ? `${apiBaseUrl}/product/view?search=${searchTerm}`
+      : `${apiBaseUrl}/product/view`;
+
     axios
-      .get(`${apiBaseUrl}/product/view`)
+      .get(url)
       .then((res) => {
         setProducts(res.data.data);
-        console.log(res.data.data);
+        setLoading(false);
       })
+      .catch((err) => {
+        console.error("Error fetching products", err);
+        toast.error("Failed to load products!");
+        setLoading(false);
+      });
+  };
+
+  useEffect(() => {
+    // Add a small delay (debounce) to avoid too many API calls
+    const delayDebounceFn = setTimeout(() => {
+      getProducts(search);
+    }, 500);
+
+    return () => clearTimeout(delayDebounceFn);
+  }, [search]);
+
+  const productDetails = (id) => {
+    alert(id);
+    axios
+      .get(`${apiBaseUrl}/product/productDetails/${id}`)
+      .then((res) => res.data)
+      .then((finalResponce) => {
+        setProductData(finalResponce.productDetails);
+
+      })
+
       .catch((err) => {
         console.error("Error fetching products", err);
         toast.error("Failed to load products!");
       });
   };
-
-  useEffect(() => {
-    getProducts();
-  }, []);
 
   const getCheckedValue = (e) => {
     if (e.target.checked) {
@@ -107,14 +136,10 @@ const Product = () => {
   };
 
   const tableHead = [
+    { label: "S.No", key: "s.no" },
     { label: "Image", key: "imageUrl" },
-    { label: "Name", key: "productName" },
-    { label: "Category", key: "category" },
-    { label: "Type", key: "productType" },
-    { label: "Best Selling", key: "productBestSelling" },
-    { label: "Top Rated", key: "productTopRated" },
-    { label: "Trending", key: "productTrending" },
-    { label: "Order", key: "productOrder" },
+    { label: "Product Name", key: "productName" },
+    { label: "Description", key: "description" },
     { label: "Status", key: "productStatus" },
     { label: "Action", key: "action" },
   ];
@@ -143,6 +168,8 @@ const Product = () => {
           </div>
           <input
             type="text"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
             placeholder="Search product..."
             className="border rounded px-4 py-2 text-sm w-full sm:w-64 md:w-80"
           />
@@ -192,7 +219,11 @@ const Product = () => {
             <thead className="bg-[#2B7FFF] text-white">
               <tr>
                 <th className="px-6 py-3 text-center">
-                  <input type="checkbox" className="rounded" />
+                  <input
+                    type="checkbox"
+                    onClick={getInputHeadingCheck}
+                    className="rounded"
+                  />
                 </th>
                 {tableHead.map((header) => (
                   <th
@@ -223,6 +254,16 @@ const Product = () => {
                         className="rounded"
                       />
                     </td>
+                    <td className="px-6 py-4 font-semibold text-gray-800">
+                      {index + 1}
+                      {/* <input
+                        type="checkbox"
+                        value={item._id}
+                        onChange={getCheckedValue}
+                        checked={allIds.includes(item._id)}
+                        className="rounded"
+                      /> */}
+                    </td>
                     <td className="px-6 py-4">
                       <div className="w-16 h-12 rounded-lg overflow-hidden border border-gray-200">
                         <img
@@ -240,36 +281,44 @@ const Product = () => {
 
                     <td className="px-6 py-4 font-semibold text-gray-800">
                       {item.productName}
+                      <br />
+                      <div className="text-xs text-gray-500 mt-1">
+                        <b>category Name</b>
+                        {item.parentCategoryId?.categoryName && (
+                          <div className="font-semibold text-blue-600">
+                            {item.parentCategoryId.categoryName}
+                          </div>
+                        )}
+                        <b>subCategory Name</b>
+                        {item.subCategoryId?.subCategoryName && (
+                          <div>↳ {item.subCategoryId.subCategoryName}</div>
+                        )}
+                        <b>subSubCategory Name</b>
+                        {item.subsubCategoryId?.subSubCategoryName && (
+                          <div className="pl-2">
+                            ↳ {item.subsubCategoryId.subSubCategoryName}
+                          </div>
+                        )}
+                      </div>
                     </td>
-                    <td className="px-6 py-4 text-gray-600">
-                      {item.category?.categoryName || "N/A"}
-                    </td>
-                    <td className="px-6 py-4 text-gray-600">
-                      {item.productType === "1"
-                        ? "Featured"
-                        : item.productType === "2"
-                          ? "New Arrivals"
-                          : item.productType === "discontinued"
-                            ? "Discontinued"
-                            : item.productType}
-                    </td>
+
                     <td className="px-6 py-4 text-center">
-                      {item.productBestSelling ? "Yes" : "No"}
+                      <div className="max-w-sm">
+                        <p className="text-sm">Lorem ipsum dolor sit amet.</p>
+                        <button
+                          className="text-amber-800"
+                          onClick={(productDetails) => (item._id)}
+                        >
+                          Read More
+                        </button>
+                      </div>
                     </td>
-                    <td className="px-6 py-4 text-center">
-                      {item.productTopRated ? "Yes" : "No"}
-                    </td>
-                    <td className="px-6 py-4 text-center">
-                      {item.productTrending ? "Yes" : "No"}
-                    </td>
-                    <td className="px-6 py-4 text-center text-gray-600">
-                      {item.productOrder}
-                    </td>
+
                     <td className="px-6 py-4 text-center">
                       <span
                         className={`px-4 py-1 rounded-full text-xs font-bold ${item.productStatus
-                            ? "bg-green-100 text-green-800"
-                            : "bg-red-100 text-red-800"
+                          ? "bg-green-100 text-green-800"
+                          : "bg-red-100 text-red-800"
                           }`}
                       >
                         {item.productStatus ? "Active" : "Inactive"}

@@ -19,7 +19,9 @@
 const express = require("express")
 const cors = require("cors")
 const path = require("path")
+const cookieParser = require("cookie-parser");
 const { adminRoutes } = require("./routes/adminApi/adminApi.route")
+const { webRoute } = require("./routes/web/web")
 const { errorHandler } = require("./middlewares/errorHandler")
 
 const app = express()
@@ -43,9 +45,12 @@ app.use(cors({
 app.use(express.json({ limit: "16kb", }))
 app.use(express.urlencoded({ extended: true, limit: "16kb", }))
 app.use(express.static(path.join(__dirname, "../../public")))
+app.use(cookieParser())
 
 // ==================== ROUTE DEFINITIONS ====================
 app.use("/admin", adminRoutes)
+app.use("/web", webRoute)
+
 
 // ==================== ERROR HANDLING ====================
 // 404 handler - must be after all routes

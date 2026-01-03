@@ -10,15 +10,21 @@ import { Navigate, useNavigate } from "react-router-dom";
 const Slider = () => {
   const [sliderFilter, setSliderFilters] = useState(false);
   const [showSliderAddition, setShowSliderAddition] = useState(false); // modal toggle
+  const [search, setSearch] = useState("");
   const [data, setData] = useState([]);
   const [allIds, setAllIds] = useState([]);
   const navigate = useNavigate()
 
   const apiBaseUrl = import.meta.env.VITE_APIBASE;
 
-  const getSlider = () => {
+  // Supports searching via the 'search' query parameter
+  const getSlider = (searchTerm = "") => {
+    const url = searchTerm
+      ? `${apiBaseUrl}/slider/view?search=${searchTerm}`
+      : `${apiBaseUrl}/slider/view`;
+
     axios
-      .get(`${apiBaseUrl}/slider/view`)
+      .get(url)
       .then((res) => {
         setData(res.data.data);
       })
@@ -29,8 +35,13 @@ const Slider = () => {
   };
 
   useEffect(() => {
-    getSlider();
-  }, []);
+    // Add a small delay (debounce) to avoid too many API calls
+    const delayDebounceFn = setTimeout(() => {
+      getSlider(search);
+    }, 500);
+
+    return () => clearTimeout(delayDebounceFn);
+  }, [search]);
 
   const getCheckedValue = (e) => {
     if (e.target.checked) {
@@ -191,10 +202,10 @@ const Slider = () => {
               <tr>
                 <th className="px-6 py-3 text-center">
                   <input type="checkbox"
-                  readOnly
-                  checked={data.length === allIds.length}
-                  onClick={getInputHeadingCheck}
-                  className="rounded " />
+                    readOnly
+                    checked={data.length === allIds.length}
+                    onClick={getInputHeadingCheck}
+                    className="rounded " />
                 </th>
                 {tableHead.map((header) => (
                   <th

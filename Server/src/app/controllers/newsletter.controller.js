@@ -55,7 +55,16 @@ const newsletterCreate = asyncHandler(async (req, res) => {
 });
 // ==================== VIEW NEWSLETTERS ====================
 const newsletterView = asyncHandler(async (req, res) => {
-    const newsletters = await newsletterModel.find({ isDeleted: false }).sort({ createdAt: -1 });
+    const { search } = req.query;
+    const filter = { isDeleted: { $in: [false, null] } };
+
+    // Search filter: Case-insensitive partial match on newsletterEmail
+    if (search) {
+        filter.newsletterEmail = { $regex: search, $options: "i" };
+    }
+
+    const newsletters = await newsletterModel.find(filter).sort({ createdAt: -1 });
+
     return res
         .status(200)
         .json(new ApiResponse(200, newsletters, "Newsletter subscribers retrieved successfully"));

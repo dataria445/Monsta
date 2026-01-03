@@ -81,7 +81,22 @@ const coupounCreate = asyncHandler(async (req, res) => {
 });
 // ==================== VIEW COUPONS ====================
 const coupounView = asyncHandler(async (req, res) => {
-    const coupouns = await coupounModel.find({ isDeleted: false }).sort({ coupounOrder: 1, createdAt: -1 });
+    const { search } = req.query;
+    const filter = { isDeleted: { $in: [false, null] } };
+
+    // Search filter: Case-insensitive partial match on name/code or exact match on coupounOrder
+    if (search) {
+        filter.$or = [
+            { coupounName: { $regex: search, $options: "i" } },
+            { coupounCode: { $regex: search, $options: "i" } },
+        ];
+        if (!isNaN(search) && search.trim() !== "") {
+            filter.$or.push({ coupounOrder: Number(search) });
+        }
+    }
+
+    const coupouns = await coupounModel.find(filter).sort({ coupounOrder: 1, createdAt: -1 });
+
     return res
         .status(200)
         .json(new ApiResponse(200, coupouns, "Coupons retrieved successfully"));

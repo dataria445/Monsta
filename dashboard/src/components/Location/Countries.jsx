@@ -10,25 +10,35 @@ const Countries = () => {
   const [countryFilter, setCountryFilters] = useState(false);
   const [countryAddition, setCountryAddition] = useState(false);
 
+  const [search, setSearch] = useState("");
   const [data, setData] = useState([]);
   const [allIds, setAllIds] = useState([]);
 
   let apiBaseUrl = import.meta.env.VITE_APIBASE;
 
   // Load country list
-  let getLocation = () => {
+  // Supports searching via the 'search' query parameter
+  let getLocation = (searchTerm = "") => {
+    const url = searchTerm
+      ? `${apiBaseUrl}/country/view?search=${searchTerm}`
+      : `${apiBaseUrl}/country/view`;
+
     axios
-      .get(`${apiBaseUrl}/country/view`)
+      .get(url)
       .then((res) => {
-        console.log("API Response:", res.data);
         setData(res.data.data);
       })
       .catch((err) => console.log("Error loading countries:", err));
   };
 
   useEffect(() => {
-    getLocation();
-  }, []);
+    // Add a small delay (debounce) to avoid too many API calls
+    const delayDebounceFn = setTimeout(() => {
+      getLocation(search);
+    }, 500);
+
+    return () => clearTimeout(delayDebounceFn);
+  }, [search]);
 
   // Checkbox Value Collection
   const getCheckedValue = (e) => {
